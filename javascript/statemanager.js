@@ -32,7 +32,7 @@
     sm.hasAppliedStartupConfig = false;
     sm.forceHistoryVersionLayout = false;
     sm.activePanelTab = 'history';
-    sm.uiSettings = {
+        sm.uiSettings = {
         historySmallViewEntriesPerPage: entriesPerPage,
         favouritesSmallViewEntriesPerPage: entriesPerPage,
         collapseSmallViewAccordion: false,
@@ -48,6 +48,7 @@
         defaultOpenTab: 'favourites',
         hideSearchByDefault: false,
         preventApplyWithUnsavedConfigEdits: true,
+        createVersionSnapshots: false,
         startupConfigStateKey: ''
     };
     sm.inspectorPreviewOnly = false;
@@ -97,8 +98,9 @@
             defaultOpenTab: 'favourites',
             hideSearchByDefault: false,
             preventApplyWithUnsavedConfigEdits: true,
-            startupConfigStateKey: ''
-        };
+            startupConfigStateKey: '',
+			createVersionSnapshots: false,
+		};
         if (!settings || typeof settings !== 'object') {
             return normalised;
         }
@@ -119,6 +121,7 @@
         normalised.hideSearchByDefault = Boolean(settings.hideSearchByDefault);
         normalised.preventApplyWithUnsavedConfigEdits = Boolean(settings.preventApplyWithUnsavedConfigEdits);
         normalised.startupConfigStateKey = `${settings.startupConfigStateKey ?? ''}`;
+		normalised.createVersionSnapshots = Boolean(settings.createVersionSnapshots);
         return normalised;
     };
     sm.getNormalisedStoredEntryFilter = function (filter) {
@@ -212,7 +215,8 @@
         const defaultOpenTabSelect = sm.panelContainer.querySelector('#sd-webui-sm-settings-default-open-tab');
         const hideSearchByDefaultCheckbox = sm.panelContainer.querySelector('#sd-webui-sm-settings-hide-search');
         const preventApplyWithUnsavedEditsCheckbox = sm.panelContainer.querySelector('#sd-webui-sm-settings-prevent-apply-unsaved-edits');
-        if (historySmallViewEntriesInput) {
+        const createSnapshotsCheckbox = sm.panelContainer.querySelector('#sd-webui-sm-settings-create-snapshots');
+		if (historySmallViewEntriesInput) {
             historySmallViewEntriesInput.value = `${Math.max(1, Number(sm.uiSettings.historySmallViewEntriesPerPage) || entriesPerPage)}`;
         }
         if (favouritesSmallViewEntriesInput) {
@@ -253,6 +257,9 @@
         }
         if (preventApplyWithUnsavedEditsCheckbox) {
             preventApplyWithUnsavedEditsCheckbox.checked = Boolean(sm.uiSettings.preventApplyWithUnsavedConfigEdits);
+        }
+		if (createSnapshotsCheckbox) {
+            createSnapshotsCheckbox.checked = Boolean(sm.uiSettings.createVersionSnapshots);
         }
         sm.syncStartupConfigSettingsControls?.();
     };
@@ -1062,7 +1069,7 @@
         if (!hasProfileMetadataChanges && changeDetails.changedFieldsCount <= 0) {
             return;
         }
-        const shouldCreateVersionHistory = wasFavourite && isFavourite && changeDetails.changedFieldsCount > 0;
+        const shouldCreateVersionHistory = Boolean(sm.uiSettings.createVersionSnapshots) && wasFavourite && isFavourite && changeDetails.changedFieldsCount > 0;
         if (shouldCreateVersionHistory) {
             const historyVersionEntry = sm.createConfigVersionHistoryEntry(previousState, configVersionId, previousVersionNumber, changeDetails.summary);
             sm.upsertState(historyVersionEntry);
@@ -1239,8 +1246,8 @@
             checkbox: svelteClassFromSelector('input[type=checkbox]'),
             prompt: svelteClassFromSelector('#txt2img_prompt label')
         };
-        const defaultQuickSettingSaveButtonText = 'Save Current UI as Config';
-        const quickSettingSaveButton = sm.createElementWithInnerTextAndClassList('button', defaultQuickSettingSaveButtonText, 'sd-webui-sm-nav-save-button', 'sd-webui-sm-nav-save-current-config-button', 'lg', 'secondary', 'gradio-button', sm.svelteClasses.button);
+        const defaultQuickSettingSaveButtonText = '💾 Config';
+        const quickSettingSaveButton = sm.createElementWithInnerTextAndClassList('button', defaultQuickSettingSaveButtonText, 'sd-webui-sm-nav-save-button', 'sd-webui-sm-nav-save-current-config-button', 'secondary', 'gradio-button', sm.svelteClasses.button);
         quickSettingSaveButton.id = 'sd-webui-sm-quicksettings-button-save';
         quickSettingSaveButton.title = "Save current UI settings as a config";
         sm.quickSettingSaveButton = quickSettingSaveButton;
@@ -1254,9 +1261,18 @@
         };
         quickSettingSaveButton.addEventListener('click', async () => {
             const generationType = sm.utils.getCurrentGenerationTypeFromUI();
-            if (generationType != null) {
+            if (generationType == null) {
+                showQuickSettingSaveButtonResult(false);
+                return;
+            }
+            const defaultName = "Saved UI " + new Date().toISOString().replace('T', ' ').replace(/\.\d+Z/, '');
+            const entered = prompt("Name this config:", defaultName);
+            if (entered == null) {
+                return;
+            }
+            try {
                 const currentState = await sm.getCurrentState(generationType);
-                currentState.name = "Saved UI " + new Date().toISOString().replace('T', ' ').replace(/\.\d+Z/, '');
+                currentState.name = entered.trim() || defaultName;
                 currentState.isUiSaveConfig = true;
                 const savedUiPreviewPath = sm.getSavedUiPreviewImagePath();
                 if (savedUiPreviewPath) {
@@ -1265,8 +1281,8 @@
                 sm.saveState(currentState, 'favourites');
                 showQuickSettingSaveButtonResult(true);
                 sm.updateEntries();
-            }
-            else {
+            } catch (e) {
+                console.error("[State Manager] Save failed:", e);
                 showQuickSettingSaveButtonResult(false);
             }
         });
@@ -1870,7 +1886,16 @@
             sm.saveUISettings();
         });
         settingsList.appendChild(createSettingsRow('Prevent Apply With Unsaved Config Edits', 'Block apply actions until config edits are saved or discarded. Disabling this is not recommended.', settingsPreventApplyWithUnsavedEdits, 'Disabling this is not recommended.'));
-        const settingsDefaultShowFavourites = document.createElement('input');
+        const settingsCreateSnapshots = document.createElement('input');
+        settingsCreateSnapshots.id = 'sd-webui-sm-settings-create-snapshots';
+        settingsCreateSnapshots.type = 'checkbox';
+        settingsCreateSnapshots.classList.add(sm.svelteClasses.checkbox);
+        settingsCreateSnapshots.addEventListener('change', () => {
+            sm.uiSettings.createVersionSnapshots = settingsCreateSnapshots.checked;
+            sm.saveUISettings();
+        });
+        settingsList.appendChild(createSettingsRow('Create Version Snapshots on Save', 'When enabled, saving changes to a config archives the previous state as a version instead of overwriting in place.', settingsCreateSnapshots));
+		const settingsDefaultShowFavourites = document.createElement('input');
         settingsDefaultShowFavourites.id = 'sd-webui-sm-settings-default-show-favourites';
         settingsDefaultShowFavourites.type = 'checkbox';
         settingsDefaultShowFavourites.classList.add(sm.svelteClasses.checkbox);
@@ -3289,15 +3314,18 @@
         return gradioApp().querySelectorAll('div[id^="tab_"] div[id$="_results"] .thumbnail-item > img');
     };
     sm.getCurrentState = async function (type) {
-        return {
-            saveVersion: sm.version,
-            type: type, // txt2img | img2img
-            defaults: sm.memoryStorage.currentDefault.hash,
-            quickSettings: await sm.getQuickSettings(),
-            componentSettings: sm.getComponentSettings(type, true),
-            preview: sm.createPreviewImageData()
-        };
-    };
+		if (!sm.memoryStorage?.currentDefault) {
+			throw new Error("UI defaults not loaded yet");
+		}
+		return {
+			saveVersion: sm.version,
+			type: type,
+			defaults: sm.memoryStorage.currentDefault.hash,
+			quickSettings: await sm.getQuickSettings(),
+			componentSettings: sm.getComponentSettings(type, true),
+			preview: sm.createPreviewImageData()
+		};
+	};
     sm.saveState = function (state, group) {
         state.createdAt = Date.now();
         state.groups = [group];
@@ -3449,100 +3477,95 @@
         return null;
     };
     sm.getMappedComponentEntryValue = function (entry) {
-        if (!entry) {
-            return undefined;
-        }
-        if (entry.source == 'ui-config') {
-            const element = sm.findElementBySelectorOrFallback(entry.path);
-            if (!element) {
-                return undefined;
-            }
-            if (element instanceof HTMLInputElement) {
-                if (element.type == 'checkbox') {
-                    return element.checked;
-                }
-                if (element.type == 'number' || element.type == 'range') {
-                    const value = Number(element.value);
-                    return Number.isNaN(value) ? element.value : value;
-                }
-                return element.value;
-            }
-            if (element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) {
-                return element.value;
-            }
-            return undefined;
-        }
-        const componentValue = entry.component?.props?.value;
-        if (componentValue !== undefined) {
-            return componentValue;
-        }
-        // Forge Neo InputAccordionImpl and some custom wrappers don't always expose props.value.
-        // Try common Gradio/Svelte instance contexts before falling back to DOM extraction.
-        const instanceContextValue = entry.component?.instance?.$$?.ctx?.[0];
-        if (instanceContextValue !== undefined) {
-            return instanceContextValue;
-        }
-        const element = entry.element;
-        if (element instanceof HTMLInputElement) {
-            if (element.type == 'checkbox') {
-                return element.checked;
-            }
-            if (element.type == 'number' || element.type == 'range') {
-                const value = Number(element.value);
-                return Number.isNaN(value) ? element.value : value;
-            }
-            return element.value;
-        }
-        if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
-            return element.value;
-        }
-        const nestedInput = element?.querySelector?.('textarea, input[type="text"], input[type="number"], input[type="range"], select, input[type="checkbox"]');
-        if (nestedInput instanceof HTMLInputElement) {
-            if (nestedInput.type == 'checkbox') {
-                return nestedInput.checked;
-            }
-            if (nestedInput.type == 'number' || nestedInput.type == 'range') {
-                const value = Number(nestedInput.value);
-                return Number.isNaN(value) ? nestedInput.value : value;
-            }
-            return nestedInput.value;
-        }
-        if (nestedInput instanceof HTMLTextAreaElement || nestedInput instanceof HTMLSelectElement) {
-            return nestedInput.value;
-        }
-        return undefined;
-    };
+		if (!entry) {
+			return undefined;
+		}
+		const resolveValue = (el) => {
+			if (!el) {
+				return undefined;
+			}
+			if (el instanceof HTMLInputElement) {
+				if (el.type == 'checkbox') {
+					return el.checked;
+				}
+				if (el.type == 'number' || el.type == 'range') {
+					const v = Number(el.value);
+					return Number.isNaN(v) ? el.value : v;
+				}
+				return el.value;
+			}
+			if (el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {
+				return el.value;
+			}
+			return undefined;
+		};
+		if (entry.source == 'ui-config') {
+			const element = sm.findElementBySelectorOrFallback(entry.path);
+			if (!element) {
+				return undefined;
+			}
+			const direct = resolveValue(element);
+			if (direct !== undefined) {
+				return direct;
+			}
+			const nested = element.querySelector?.('textarea, input[type="text"], input[type="number"], input[type="range"], select, input[type="checkbox"]');
+			return resolveValue(nested);
+		}
+		const componentValue = entry.component?.props?.value;
+		if (componentValue !== undefined) {
+			return componentValue;
+		}
+		const instanceContextValue = entry.component?.instance?.$$?.ctx?.[0];
+		if (instanceContextValue !== undefined) {
+			return instanceContextValue;
+		}
+		const element = entry.element;
+		const direct = resolveValue(element);
+		if (direct !== undefined) {
+			return direct;
+		}
+		const nestedInput = element?.querySelector?.('textarea, input[type="text"], input[type="number"], input[type="range"], select, input[type="checkbox"]');
+		return resolveValue(nestedInput);
+	};
     sm.setMappedComponentEntryValue = function (entry, value) {
-        if (!entry) {
-            return;
-        }
-        if (entry.source == 'ui-config') {
-            const element = sm.findElementBySelectorOrFallback(entry.path);
-            if (!element) {
-                console.warn(`[State Manager] Could not find element for ${entry.path} (tried explicit selector and ui-config fallback)`);
-                return;
-            }
-            if (element instanceof HTMLInputElement) {
-                if (element.type == 'checkbox') {
-                    element.checked = Boolean(value);
-                }
-                else {
-                    element.value = `${value ?? ''}`;
-                }
-            }
-            else if (element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) {
-                element.value = `${value ?? ''}`;
-            }
-            element.dispatchEvent(new Event('input', { bubbles: true }));
-            element.dispatchEvent(new Event('change', { bubbles: true }));
-            return;
-        }
-        entry.component.props.value = value;
-        entry.component.instance.$set({ value: entry.component.props.value });
-        const e = new Event('change', { bubbles: true });
-        Object.defineProperty(e, 'target', { value: entry.element });
-        entry.element.dispatchEvent(e);
-    };
+		if (!entry) {
+			return;
+		}
+		if (entry.source == 'ui-config') {
+			let element = sm.findElementBySelectorOrFallback(entry.path);
+			if (!element) {
+				console.warn(`[State Manager] Could not find element for ${entry.path} (tried explicit selector and ui-config fallback)`);
+				return;
+			}
+			const isWritable = (el) =>
+				el instanceof HTMLInputElement ||
+				el instanceof HTMLSelectElement ||
+				el instanceof HTMLTextAreaElement;
+			if (!isWritable(element)) {
+				const nested = element.querySelector?.('input, select, textarea');
+				if (nested) {
+					element = nested;
+				}
+			}
+			if (element instanceof HTMLInputElement) {
+				if (element.type == 'checkbox') {
+					element.checked = Boolean(value);
+				} else {
+					element.value = `${value ?? ''}`;
+				}
+			} else if (element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) {
+				element.value = `${value ?? ''}`;
+			}
+			element.dispatchEvent(new Event('input', { bubbles: true }));
+			element.dispatchEvent(new Event('change', { bubbles: true }));
+			return;
+		}
+		entry.component.props.value = value;
+		entry.component.instance.$set({ value: entry.component.props.value });
+		const e = new Event('change', { bubbles: true });
+		Object.defineProperty(e, 'target', { value: entry.element });
+		entry.element.dispatchEvent(e);
+	};
 
     sm.fetchForgeNeoSelectors = async function () {
         return sm.api.get("forgeneomap")
@@ -3584,7 +3607,7 @@
                 const componentId = (typeof responseData === 'object' && responseData) ? responseData.id : responseData;
                 const pathParts = path.split('/');
                 if (pathParts[pathParts.length - 1] != 'value') {
-                    continue; // Skip other settings like min/max if they sneak in here
+                    continue;
                 }
                 const basePath = pathParts.slice(0, pathParts.length - 1).join('/');
                 if (source == 'ui-config') {
@@ -3610,8 +3633,6 @@
                             element: app.getElementById(component.props.elem_id || `component-${component.id}`)
                         }]
                 };
-                // I really, REALLY dislike adding exception cases for specific extensions, but ControlNet's such a pivotal one...
-                // The problem is each unit refers to the same default component path, and we only get returned unit 0 in the list of mapped components from Py
                 if (component.props.elem_id?.indexOf('controlnet_ControlNet-0_') > -1) {
                     for (let i = 1; i < 3; i++) {
                         const unitElemId = component.props.elem_id.replace('ControlNet-0_', `ControlNet-${i}_`);
@@ -3629,10 +3650,6 @@
                 }
                 sm.componentMap[basePath] = data;
             }
-            // Input accordions extend from gr.Checkbox, where an opened accordion = enabled and closed = disabled
-            // They also contain a separate checkbox to override this behaviour, called `xxx-visible-checkbox`
-            // To make matters worse, the refiner is just called `txt2img_enable`, and doesn't add itself to the monitored components
-            // Since there's no way to retrieve the refiner property path from the accordion, I'm just gonna manually hack those in for now
             const inputAccordions = document.querySelectorAll('#tab_txt2img .input-accordion, #tab_img2img .input-accordion');
             for (const accordion of inputAccordions) {
                 const component = componentsByElemId.get(accordion.id);
@@ -3661,13 +3678,11 @@
                             break;
                     }
                 }
-                // We could use data.element.addEventListener("change", ...) here, but I don't like the idea of adding a "global" listener
-                // like that, that extends outside the scope of this extension. Thus, a hacky data.onchange() that we call manually. Neat.
                 data.onChange = () => {
                     visibleCheckbox.checked = data.entries[0].element.checked;
                 };
             }
-            for (const component of components) { // {path: id}
+            for (const component of components) {
                 if (!component.props.elem_id?.startsWith('setting_')) {
                     continue;
                 }
@@ -3679,7 +3694,33 @@
                             element: app.getElementById(component.props.elem_id)
                         }]
                 };
-                sm.componentMap[component.props.elem_id.substring(8)] = data; // strips "setting_" so we get sm.componentMap['sd_model_checkpoint'] e.g.
+                sm.componentMap[component.props.elem_id.substring(8)] = data;
+            }
+            // Forge Neo: sampler.py dropdowns are Gradio components, but their ui-config
+            // aliases resolve to a wrapper DIV with no value in the DOM. Attach the real
+            // Gradio component under the alias key so $set works.
+            const SAMPLER_ALIASES = {
+                'txt2img_sampling':  'customscript/sampler.py/txt2img/Sampling Method',
+                'txt2img_steps':     'customscript/sampler.py/txt2img/Sampling Steps',
+                'txt2img_scheduler': 'customscript/sampler.py/txt2img/Schedule Type',
+                'img2img_sampling':  'customscript/sampler.py/img2img/Sampling Method',
+                'img2img_steps':     'customscript/sampler.py/img2img/Sampling Steps',
+                'img2img_scheduler': 'customscript/sampler.py/img2img/Schedule Type',
+            };
+            for (const elemId in SAMPLER_ALIASES) {
+                const c = components.find(x => x.props?.elem_id === elemId);
+                if (!c) {
+                    continue;
+                }
+                const alias = SAMPLER_ALIASES[elemId];
+                sm.componentMap[alias] = {
+                    entries: [{
+                            source: 'gradio',
+                            path: alias,
+                            component: c,
+                            element: app.getElementById(elemId)
+                        }]
+                };
             }
         })
             .catch(e => sm.utils.logResponseError("[State Manager] Getting component IDs failed with error", e));
