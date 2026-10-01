@@ -48,3 +48,4 @@ https://github.com/masterofobzene/preset-manager-neo
 
 ---
 
+ Credits to @eduardoabreu81 as he created the extension in the first place.
