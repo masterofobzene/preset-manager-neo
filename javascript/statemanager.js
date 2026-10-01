@@ -1313,8 +1313,7 @@
                 sm.api.post("exportlegacy", { contents: JSON.stringify(sm.legacyData) })
                     .then(response => {
                     if (!sm.utils.isValidResponse(response, 'success', 'path') || !response.success) {
-                        Promise.reject(response);
-                        return;
+                        return Promise.reject(response);
                     }
                     alert(`Success! The save data was succesfully exported to ${response.path}`);
                 })
@@ -2399,7 +2398,7 @@
         sm.updateEntries();
     };
     sm.updateEntries = function () {
-        if (!sm.hasOwnProperty('memoryStorage')) { // Storage not init'd yet, defer until it's ready
+        if (!sm.storageReady) {
             sm.updateEntriesWhenStorageReady = true;
             return;
         }
@@ -3148,8 +3147,7 @@
         return sm.api.post("quicksettings", { contents: JSON.stringify(values) })
             .then(response => {
             if (!sm.utils.isValidResponse(response, 'success') || !response.success) {
-                Promise.reject(response);
-                return;
+                return Promise.reject(response);
             }
             sm.applyComponentSettings(values);
         })
@@ -3588,8 +3586,7 @@
         return sm.api.get("componentids")
             .then(response => {
             if (!sm.utils.isValidResponse(response)) {
-                Promise.reject(response);
-                return;
+                return Promise.reject(response);
             }
             sm.componentMap = {};
             const components = gradio_config.components || [];
@@ -3729,8 +3726,7 @@
         return sm.api.get("savelocation")
             .then(response => {
             if (!sm.utils.isValidResponse(response, 'location')) {
-                Promise.reject(response);
-                return;
+                return Promise.reject(response);
             }
             if (response.location == 'File') {
                 return sm.getFileStorage();
@@ -3751,9 +3747,17 @@
             };
         }
         let bytes = storedData;
-        if (!(storedData instanceof Uint8Array)) { // Data is in "legacy" SM 1.0 format
-            bytes = Uint8Array.from(JSON.parse(storedData));
-        }
+		if (!(storedData instanceof Uint8Array)) {
+			if (Array.isArray(storedData)) {
+				bytes = Uint8Array.from(storedData);
+			} else if (typeof storedData === 'string' && storedData.trim().startsWith('[')) {
+				bytes = Uint8Array.from(JSON.parse(storedData));
+			} else if (typeof storedData === 'string' && storedData.length > 0) {
+				bytes = Uint8Array.from(storedData.split(',').map(Number));
+			} else {
+				return { defaults: {}, favouritesOrder: [], entries: {} };
+			}
+		}
         const decompressed = await sm.utils.decompress(bytes);
         return JSON.parse(decompressed) || {
             defaults: {},
@@ -3776,7 +3780,7 @@
         return sm.api.get("filedata")
             .then(response => {
             if (!sm.utils.isValidResponse(response, 'data')) {
-                Promise.reject(response);
+                return Promise.reject(response);
             }
             else {
                 return response.data || {
@@ -3788,22 +3792,19 @@
         })
             .catch(e => sm.utils.logResponseError("[State Manager] Getting file storage failed with error", e));
     };
-    sm.updateStorage = async function () {
+    sm.updateStorage = function () {
         if (updateStorageDebounceHandle != null) {
             clearTimeout(updateStorageDebounceHandle);
             updateStorageDebounceHandle = null;
         }
-        sm.api.get("savelocation")
+        return sm.api.get("savelocation")
             .then(response => {
             if (!sm.utils.isValidResponse(response, 'location')) {
-                Promise.reject(response);
-            }
-            else if (response.location == 'File') {
-                sm.updateFileStorage();
-            }
-            else {
-                sm.updateLocalStorage();
-            }
+				return Promise.reject(response);
+			}
+			return response.location == 'File'
+				? sm.updateFileStorage()
+				: sm.updateLocalStorage();
         })
             .catch(e => sm.utils.logResponseError("[State Manager] Updating storage failed with error", e));
     };
@@ -3857,8 +3858,7 @@
         return sm.api.get("uidefaults")
             .then(response => {
             if (!sm.utils.isValidResponse(response, 'hash', 'contents')) {
-                Promise.reject(response);
-                return;
+                return Promise.reject(response);
             }
             let contents = {};
             for (const path of Object.keys(response.contents)) {
@@ -3874,6 +3874,7 @@
             };
             sm.memoryStorage.currentDefault = currentDefault;
             sm.memoryStorage.savedDefaults[currentDefault.hash] = contents;
+			sm.storageReady = true;
             // sm.inspector.innerHTML = "";
             // sm.updateInspector();
         })
@@ -3886,8 +3887,7 @@
         return sm.api.get("savelocation")
             .then(response => {
             if (!sm.utils.isValidResponse(response, 'saveFile')) {
-                Promise.reject(response);
-                return;
+				return Promise.reject(response);
             }
             const sources = ["this browser's Indexed DB", `the shared ${response.saveFile} file`];
             const warning = type == 'merge' ?
@@ -3958,8 +3958,7 @@
         sm.api.get("savelocation")
             .then(response => {
             if (!sm.utils.isValidResponse(response, 'location', 'saveFile')) {
-                Promise.reject(response);
-                return;
+                return Promise.reject(response);
             }
             const sources = ["this browser's Indexed DB", `the shared ${response.saveFile} file`];
             if (!confirm(`Warning! You are about to delete ALL entries from ${sources[location == 'Browser\'s Indexed DB' ? 0 : 1]}. This operation can not be undone! Are you sure you wish to continue?`)) {
@@ -4039,7 +4038,7 @@
         return sm.api.get("quicksettings")
             .then(response => {
             if (!sm.utils.isValidResponse(response, 'settings')) {
-                Promise.reject(response);
+                return Promise.reject(response);
             }
             return response.settings;
         })
@@ -4345,7 +4344,7 @@
         const versionPromise = sm.api.get("version")
             .then(response => {
             if (!sm.utils.isValidResponse(response, 'version')) {
-                Promise.reject(response);
+                return Promise.reject(response);
             }
             sm.version = response.version;
         })
