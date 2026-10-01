@@ -30,7 +30,7 @@ Save your full txt2img/img2img setup once — model, sampler, prompts, Hires set
 - Now it saves and reloads the Sampling Method and Sampling Steps correctly.
 - Saving button now will ask the user for a name for the profile
 - Made the save button smaller so it doesn't clip throught the interface.
-
+- You can now leave issues with your comments in this repo
 ---
 
 ## 📦 Installation
