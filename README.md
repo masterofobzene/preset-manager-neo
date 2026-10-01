@@ -1,15 +1,29 @@
 # 💾 Preset Manager Neo
-
+A fork of [sd-webui-state-manager-neo](https://github.com/eduardoabreu81/sd-webui-state-manager-neo)
 <div align="center">
 
 [![Forge Neo](https://img.shields.io/badge/Forge-Neo-blue)](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> **Extension for [Stable Diffusion WebUI Forge Neo](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo)**
+ **Extension for [Stable Diffusion WebUI Forge Neo](https://github.com/Haoming02/sd-webui-forge-classic/tree/neo)**
 
 </div>
 
 Save your full txt2img/img2img setup once — model, sampler, prompts, Hires settings, scripts, and all UI values — and bring it back instantly whenever you need it.
+
+<div align="center">
+
+<p>Small mode:</p>
+
+<img width="500" alt="Small mode" src="https://github.com/user-attachments/assets/6e503e2b-df20-43f6-bf1b-0c8e521e2743">
+
+<p>Full mode:</p>
+
+<img width="500" alt="Full mode" src="https://github.com/user-attachments/assets/b74ad0fc-e231-4fff-a525-c2af97d607a4">
+
+</div>
+
+
 
 ---
 
