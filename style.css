@@ -1753,3 +1753,27 @@ body.sd-webui-sm-resizing {
 .sd-webui-sm-info .sd-webui-sm-button-container button:first-child {
     background: var(--secondary-600);
 }
+
+.sd-webui-sm-control #sd-webui-sm-quicksettings-button-save {
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    line-height: 1.2 !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    max-width: fit-content !important;
+}
+
+.sd-webui-sm-control #sd-webui-sm-quicksettings-button-save {
+    background: #e67e22 !important;
+    border-color: #d35400 !important;
+    color: #ffffff !important;
+}
+
+.sd-webui-sm-control #sd-webui-sm-quicksettings-button-save:hover {
+    background: #d35400 !important;
+    border-color: #b34700 !important;
+    color: #ffffff !important;
+}
