@@ -45,7 +45,10 @@ https://github.com/masterofobzene/preset-manager-neo
 
 4. Click **Install** and reload the WebUI
 
-> ⚠️ This extension is for **Forge Neo** only.
+
+> [!WARNING]
+> Clearing your browser data will delete your profiles. Its planned to generate the settings file to another place in the very near future to avoid being restrained by the browser.
+
 
 
 ---
