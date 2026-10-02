@@ -187,16 +187,16 @@ def state_manager_api(blocks: gr.Blocks, app: FastAPI):
     @app.get("/statemanager/savelocation")
     async def get_save_location():
         return {
-            "location": shared.opts.statemanager_save_location,
-            "saveFile": shared.opts.statemanager_save_file_location
+            "location": "File",
+            "saveFile": path.basename(storage_file_path)
         }
     
     @app.get("/statemanager/filedata")
     async def get_file_data():
-        with open(storage_file_path, 'rb') as f:
-            raw = bytearray(f.read())
-
-            return {"data": f"[{','.join(map(str, raw))}]" if len(raw) > 0 else None}
+        with open(storage_file_path, 'r', encoding='utf-8') as f:
+            text = f.read()
+    
+        return {"data": text if text.strip() else None}
 
     @app.get("/statemanager/quicksettings")
     async def get_quick_settings():
@@ -218,11 +218,9 @@ def state_manager_api(blocks: gr.Blocks, app: FastAPI):
 
     @app.post("/statemanager/save")
     def save(saveData: ContentsDataModel):
-        saveData = bytes(bytearray(map(int, saveData.contents.split(','))))
-
-        with open(storage_file_path, 'wb') as f:
-            f.write(saveData)
-        
+        with open(storage_file_path, 'w', encoding='utf-8') as f:
+            f.write(saveData.contents)
+    
         return {"success": True}
     
     @app.post("/statemanager/showmodal")
