@@ -17,20 +17,38 @@ Save your full txt2img/img2img setup once — model, sampler, prompts, Hires set
 
 <p>Small mode:</p>
 
-<img width="500" alt="Small mode" src="https://github.com/user-attachments/assets/6e503e2b-df20-43f6-bf1b-0c8e521e2743">
+<img width="500" alt="2vsJAqPWi6" src="https://github.com/user-attachments/assets/75f30599-950d-47f4-b029-0fd2f34be801" />
+
 
 <p>Full mode:</p>
 
-<img width="500" alt="Full mode" src="https://github.com/user-attachments/assets/b74ad0fc-e231-4fff-a525-c2af97d607a4">
+<img width="500" alt="5DBdEXiVgY" src="https://github.com/user-attachments/assets/18e70eb5-8956-448f-864f-55d35184c849" />
+
+
+<p>Browse:</p>
+
+<img width="500" alt="CTBAx9Ouys" src="https://github.com/user-attachments/assets/0c8d3400-a9e3-4838-bbfc-51e61ee4b886" />
+
+
+<p>Autosave:</p>
+
+<img width="300" alt="mysMqwm0pz" src="https://github.com/user-attachments/assets/084e8af6-ba56-43fa-8de5-5b70c4968a8a" />
+
+
 
 </div>
 
 ## Differences with the original?
 
 - Now it saves and reloads the Sampling Method and Sampling Steps correctly.
-- Saving button now will ask the user for a name for the profile
+- Straight to the point: no more extra menus or functions, aimed at being a practical solution.
+- SIMPLIFIED: create profile snapshot -> overwrite with the current settings snapshot or create a new one.
+- Autosave feature: configurable autosave time.
+- Saving button now will ask the user for a name for the profile.
 - Made the save button smaller so it doesn't clip throught the interface.
 - You can now leave issues with your comments in this repo
+
+
 ---
 
 ## 📦 Installation
