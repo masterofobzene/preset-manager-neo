@@ -48,6 +48,9 @@ Save your full txt2img/img2img setup once — model, sampler, prompts, Hires set
 - Made the save button smaller so it doesn't clip throught the interface.
 - You can now leave issues with your comments in this repo
 
+> [!NOTE]
+> - Clearing the browser data will not delete your profiles anymore.
+
 
 ---
 
@@ -64,8 +67,6 @@ https://github.com/masterofobzene/preset-manager-neo
 4. Click **Install** and reload the WebUI
 
 
-> [!WARNING]
-> Clearing your browser data will delete your profiles. Its planned to generate the settings file to another place in the very near future to avoid being restrained by the browser.
 
 
 
