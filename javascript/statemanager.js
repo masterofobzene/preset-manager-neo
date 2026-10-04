@@ -9,6 +9,7 @@
                 setTimeout(function () { c.set(t, n, o); }, 50); }, delete: function (e, t) { s ? s.transaction("s", "readwrite").objectStore("s").delete(e).onsuccess = function (e) { t && t(); } : setTimeout(function () { c.delete(e, t); }, 50); }, list: function (t) { s ? s.transaction("s").objectStore("s").getAllKeys().onsuccess = function (e) { e = e.target.result || null; t(e); } : setTimeout(function () { c.list(t); }, 50); }, getAll: function (t) { s ? s.transaction("s").objectStore("s").getAll().onsuccess = function (e) { e = e.target.result || null; t(e); } : setTimeout(function () { c.getAll(t); }, 50); }, clear: function (t) { s ? s.transaction("s", "readwrite").objectStore("s").clear().onsuccess = function (e) { t && t(); } : setTimeout(function () { c.clear(t); }, 50); } }).get, set: c.set, delete: c.delete, list: c.list, getAll: c.getAll, clear: c.clear }, sm.ldb = t, "undefined" != typeof module && (module.exports = t)) : console.error("indexDB not supported"); }();
 
     const app = gradioApp();
+	const SM_VERSION = '1.0.0';
     const looselyEqualUIValues = new Set([null, undefined, "", "None"]);
     const entriesPerPage = 25;
     const modalEntriesPerPage = 100;
@@ -50,7 +51,6 @@
         autoSaveActiveConfigIntervalMinutes: 5
     };
 
-    sm.inspectorPreviewOnly = false;
     sm.loadedEntryFilter = null;
 
     sm.getNormalisedSortValue = function (value) {
@@ -323,8 +323,7 @@
         const orderedStateKeys = sm.getActiveFavouritesOrder?.() || sm.ensureFavouritesOrder?.() || [];
         return orderedStateKeys
             .map((stateKey) => sm.memoryStorage.entries.data[stateKey])
-            .filter((state) => Boolean(state))
-            .slice(0, 10);
+            .filter((state) => Boolean(state));
     };
     sm.syncQuickConfigApplyButtonState = function () {
         const applyButton = (sm.quickConfigApplyButton || null);
@@ -395,6 +394,7 @@
         const quickMenuContainer = (sm.quickConfigMenuContainer || null);
         const accordionToggleButton = (sm.smallViewAccordionToggleButton || null);
         if (quickSaveButton) quickSaveButton.classList.toggle('sd-webui-sm-hidden', isModal);
+        if (sm.navTitle) sm.navTitle.style.display = isModal ? 'none' : '';
         if (isModal && quickMenuContainer) quickMenuContainer.style.display = 'none';
         if (isModal && quickApplyButton) {
             quickApplyButton.classList.add('sd-webui-sm-hidden');
@@ -420,7 +420,6 @@
         const navControlButtons = (container?.parentElement || null);
         if (!container) return;
         const showQuickMenu = Boolean(sm.uiSettings.collapseSmallViewAccordion && !sm.panelContainer?.classList.contains('sd-webui-sm-modal-panel'));
-        if (navControlButtons) navControlButtons.classList.toggle('sd-webui-sm-control-wide', showQuickMenu);
         container.style.display = showQuickMenu ? 'flex' : 'none';
         if (!showQuickMenu) {
             sm.hideQuickConfigHoverTooltip?.();
@@ -567,30 +566,6 @@
             sm.updateEntries();
         }, delayMs);
     };
-    sm.queueStorageUpdate = function (delayMs = updateStorageDebounceMs) {
-        if (updateStorageDebounceHandle != null) {
-            clearTimeout(updateStorageDebounceHandle);
-            updateStorageDebounceHandle = null;
-        }
-        if (delayMs <= 0) { sm.updateStorage(); return; }
-        updateStorageDebounceHandle = window.setTimeout(() => {
-            updateStorageDebounceHandle = null;
-            sm.updateStorage();
-        }, delayMs);
-    };
-    sm.upsertState = function (state) {
-        const stateClone = JSON.parse(JSON.stringify(state));
-        stateClone.createdAt = Date.now();
-        while (sm.memoryStorage.entries.data.hasOwnProperty(`${stateClone.createdAt}`)) {
-            stateClone.createdAt++;
-        }
-        stateClone.groups = ['favourites'];
-        sm.memoryStorage.entries.data[stateClone.createdAt] = stateClone;
-        sm.memoryStorage.entries.updateKeys();
-        sm.appendFavouritesOrderKey?.(`${stateClone.createdAt}`);
-        sm.updateStorage();
-        return stateClone;
-    };
 
     sm.saveActiveProfileChanges = async function () {
         if (sm.selection.entries.length != 1) return;
@@ -609,7 +584,7 @@
         else delete updatedState.name;
         updatedState.groups = ['favourites'];
         updatedState.createdAt = entry.data.createdAt;
-        if (entry.data.preview) {
+        if (!updatedState.preview && entry.data.preview) {
 			updatedState.preview = entry.data.preview;
 		}
 		sm.memoryStorage.entries.data[entryStateKey] = updatedState;
@@ -630,26 +605,47 @@
         autoSaveTimerHandle = setInterval(() => sm.autoSaveActiveConfig(), minutes * 60 * 1000);
     };
     sm.autoSaveActiveConfig = async function () {
-        const selected = sm.selection?.entries?.[0];
-        if (!selected || !selected.data) return;
-        const stateKey = `${selected.data.createdAt ?? ''}`;
-        const targetState = sm.memoryStorage?.entries?.data?.[stateKey];
-        if (!targetState) return;
-        try {
-            const fresh = await sm.getCurrentState(targetState.type);
-            fresh.createdAt = targetState.createdAt;
-            fresh.name = targetState.name;
-            fresh.groups = ['favourites'];
-			if (targetState.preview) fresh.preview = targetState.preview;
-			sm.memoryStorage.entries.data[stateKey] = fresh;
-            selected.data = fresh;
-            await sm.updateStorage();
-            sm.updateEntries();
-            sm.updateEntryIndicators(selected);
-        } catch (e) {
-            sm.utils.logResponseError("[State Manager] Auto-save failed", e);
-        }
-    };
+		try {
+			const generationType = sm.utils.getCurrentGenerationTypeFromUI();
+			if (generationType == null) return;
+
+			// Delete any existing autosave profile
+			for (const key of Object.keys(sm.memoryStorage.entries.data)) {
+				const state = sm.memoryStorage.entries.data[key];
+				if (`${state?.name ?? ''}`.startsWith('Autosaved ')) {
+					sm.removeFavouritesOrderKey?.(`${key}`);
+					delete sm.memoryStorage.entries.data[key];
+				}
+			}
+			sm.memoryStorage.entries.updateKeys();
+
+			// Create the new autosave profile
+			const fresh = await sm.getCurrentState(generationType);
+			const now = new Date();
+			const pad = (n) => `${n}`.padStart(2, '0');
+			const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+			fresh.name = `Autosaved ${stamp}`;
+			fresh.groups = ['favourites'];
+			fresh.createdAt = Date.now();
+			while (sm.memoryStorage.entries.data.hasOwnProperty(`${fresh.createdAt}`)) {
+				fresh.createdAt++;
+			}
+
+			// Reuse the icon of whatever profile was selected, if any
+			const selected = sm.selection?.entries?.[0];
+			const selectedPreview = selected?.data?.preview;
+			if (!fresh.preview && selectedPreview) fresh.preview = selectedPreview;
+
+			sm.memoryStorage.entries.data[fresh.createdAt] = fresh;
+			sm.memoryStorage.entries.updateKeys();
+			sm.appendFavouritesOrderKey?.(`${fresh.createdAt}`);
+
+			await sm.updateStorage();
+			sm.updateEntries();
+		} catch (e) {
+			sm.utils.logResponseError("[State Manager] Auto-save failed", e);
+		}
+	};
 
     sm.getEntriesPerPage = function () {
         if (sm.getMode() == 'modal') return modalEntriesPerPage;
@@ -705,9 +701,9 @@
         sm.previewObserver?.observe(entry);
     };
     sm.syncModalOverlayState = function () {
-        const isModalOpen = Boolean(sm.panelContainer?.classList.contains('sd-webui-sm-modal-panel') && sm.panelContainer?.classList.contains('open'));
-        document.body.classList.toggle('sd-webui-sm-modal-open', isModalOpen);
-    };
+		const isModalOpen = Boolean(sm.panelContainer?.classList.contains('sd-webui-sm-modal-panel') && sm.panelContainer?.classList.contains('open'));
+		document.body.classList.toggle('sd-webui-sm-modal-open', isModalOpen);
+	};
     sm.getSavedUiPreviewImagePath = function () {
         if (typeof sm.savedUiPreviewImagePath === 'string' && sm.savedUiPreviewImagePath.length > 0) {
             return sm.savedUiPreviewImagePath;
@@ -798,10 +794,14 @@
         createNavTab('Settings', 'settings');
         sm.panelTabButtons = panelTabButtons;
 
-        navControlButtons = sm.createElementWithClassList('div', 'sd-webui-sm-control');
+		navControlButtons = sm.createElementWithClassList('div', 'sd-webui-sm-control');
+		const navTitle = sm.createElementWithInnerTextAndClassList('div', '🔸Profile Manager🔸', 'sd-webui-sm-title');
+		const navTitleVersion = sm.createElementWithInnerTextAndClassList('span', `v${SM_VERSION}`, 'sd-webui-sm-title-version');
+		navTitle.appendChild(navTitleVersion);
+		nav.appendChild(navTitle);
+		sm.navTitle = navTitle;
         const quickConfigMenuContainer = sm.createElementWithClassList('div', 'sd-webui-sm-quick-config-menu');
         sm.quickConfigMenuContainer = quickConfigMenuContainer;
-        navControlButtons.appendChild(quickConfigMenuContainer);
         const quickConfigApplyButton = sm.createElementWithInnerTextAndClassList('button', 'Apply', 'sd-webui-sm-nav-save-button', 'sd-webui-sm-nav-apply-config-button', 'lg', 'secondary', 'gradio-button', sm.svelteClasses.button);
         quickConfigApplyButton.disabled = true;
         quickConfigApplyButton.classList.add('sd-webui-sm-hidden');
@@ -848,8 +848,9 @@
             sm.syncModalOverlayState();
             sm.updateInspector();
         });
-        navTabs.appendChild(navControlButtons);
         nav.appendChild(navTabs);
+		nav.appendChild(navControlButtons);
+		nav.appendChild(quickConfigMenuContainer);
 
         const entryContainer = sm.createElementWithClassList('div', 'sd-webui-sm-entry-container');
         const entryHeader = sm.createElementWithClassList('div', 'sd-webui-sm-entry-header');
@@ -1064,7 +1065,7 @@
             sm.saveUISettings();
             sm.restartAutoSaveTimer();
         });
-        settingsList.appendChild(createSettingsRow('Auto-save Active Profile', 'Periodically overwrite the currently selected profile with the live UI state.', settingsAutoSaveActive));
+        settingsList.appendChild(createSettingsRow('Auto-save Active Profile', 'Periodically create/overwrite an "autosave" profile with the live UI state.', settingsAutoSaveActive));
 
         const settingsAutoSaveInterval = document.createElement('input');
         settingsAutoSaveInterval.id = 'sd-webui-sm-settings-auto-save-interval';
@@ -2316,12 +2317,13 @@
         }
     };
     sm.init = async function () {
-        const versionPromise = sm.api.get("version")
-            .then(response => {
-                if (!sm.utils.isValidResponse(response, 'version')) return Promise.reject(response);
-                sm.version = response.version;
-            })
-            .catch(e => sm.utils.logResponseError("[State Manager] Getting version failed with error", e));
+        sm.version = SM_VERSION;
+		const versionPromise = sm.api.get("version")
+			.then(response => {
+				if (!sm.utils.isValidResponse(response, 'version')) return Promise.reject(response);
+				sm.serverVersion = response.version;
+			})
+			.catch(e => sm.utils.logResponseError("[State Manager] Getting version failed with error", e));
         const storagePromise = sm.getFromStorage()
             .then(async (storedData) => {
                 await sm.initMemoryStorage(storedData);
@@ -2334,6 +2336,7 @@
         sm.injectUI();
         await componentMapPromise;
         await forgeNeoSelectorsPromise;
+		console.info(`[State Manager] v${sm.version}`);
         sm.applyStartupConfigIfEnabled?.();
     };
     onUiLoaded(sm.init);
