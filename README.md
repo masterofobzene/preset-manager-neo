@@ -17,39 +17,28 @@ Save your full txt2img/img2img setup once — model, sampler, prompts, Hires set
 
 <p>Small mode:</p>
 
-<img width="500" alt="2vsJAqPWi6" src="https://github.com/user-attachments/assets/75f30599-950d-47f4-b029-0fd2f34be801" />
+<img width="500" alt="zZHXEHvzHc" src="https://github.com/user-attachments/assets/bc15d7e9-0be5-4103-a1f8-a4b5be834e1f" />
+
 
 
 <p>Full mode:</p>
 
-<img width="500" alt="5DBdEXiVgY" src="https://github.com/user-attachments/assets/18e70eb5-8956-448f-864f-55d35184c849" />
+<img width="500" alt="OHVkTXHKr9" src="https://github.com/user-attachments/assets/fd692376-c0dd-418e-9538-f6ded7a525f4" />
 
-
-<p>Browse:</p>
-
-<img width="500" alt="CTBAx9Ouys" src="https://github.com/user-attachments/assets/0c8d3400-a9e3-4838-bbfc-51e61ee4b886" />
 
 
 <p>Autosave:</p>
 
-<img width="300" alt="mysMqwm0pz" src="https://github.com/user-attachments/assets/084e8af6-ba56-43fa-8de5-5b70c4968a8a" />
+<img width="300" alt="ZBXVsNVhNQ" src="https://github.com/user-attachments/assets/e418dc25-890c-447a-9f54-76c5cd21083c" />
+
 
 
 
 </div>
 
-## Differences with the original?
+## [Changelog](https://github.com/masterofobzene/preset-manager-neo/blob/main/CHANGELOG.md)
 
-- Now it saves and reloads the Sampling Method and Sampling Steps correctly.
-- Straight to the point: no more extra menus or functions, aimed at being a practical solution.
-- SIMPLIFIED: create profile snapshot -> overwrite with the current settings snapshot or create a new one.
-- Autosave feature: configurable autosave time.
-- Saving button now will ask the user for a name for the profile.
-- Made the save button smaller so it doesn't clip throught the interface.
-- You can now leave issues with your comments in this repo
 
-> [!NOTE]
-> - Clearing the browser data will not delete your profiles anymore.
 
 
 ---
