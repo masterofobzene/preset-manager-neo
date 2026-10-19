@@ -1,6 +1,6 @@
 <div align="center">
  
-# 💾 Preset Manager Neo
+# 🔸 Preset Manager Neo 🔸
 A fork of [sd-webui-state-manager-neo](https://github.com/eduardoabreu81/sd-webui-state-manager-neo)
 
 
